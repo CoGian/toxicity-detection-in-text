@@ -113,21 +113,9 @@ def createTLmodel(transformer_layer):
 		name="input_mask")
 
 	outputs = transformer_layer([input_word_ids, input_mask])
-
-	convs = []
-	filter_sizes = [1, 2, 3, 4, 5]
-
-	for filter_size in filter_sizes:
-		l_conv = tf.keras.layers.Conv1D(
-			filters=32,
-			kernel_size=filter_size,
-			activation='relu')(outputs.last_hidden_state)
-		l_pool = tf.keras.layers.GlobalMaxPooling1D()(l_conv)
-		convs.append(l_pool)
-
-	l_merge = tf.concat(convs, axis=1)
-	x = tf.keras.layers.Dropout(0.1)(l_merge)
-	x = tf.keras.layers.Dense(64, activation='relu')(x)
+	avg_pool = tf.keras.layers.GlobalAveragePooling1D()(outputs.last_hidden_state)
+	x = tf.keras.layers.Dropout(0.1)(avg_pool)
+	x = tf.keras.layers.Dense(128, activation='relu')(x)
 	result = tf.keras.layers.Dense(1, activation='sigmoid', name='target')(x)
 
 	model = tf.keras.Model(inputs=[input_word_ids, input_mask], outputs=[result])
