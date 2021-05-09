@@ -7,6 +7,7 @@ import numpy as np
 import argparse
 import os
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
 	"--data_path",
@@ -40,36 +41,16 @@ if not os.path.exists(saving_path):
 TARGET_COLUMN = 'target'
 TOXICITY_COLUMN = 'toxicity'
 
-train_df = pd.read_csv(os.path.join(data_path, "train_cleared.csv"))
-# train_df = train_df[:1000]
-test_public_df = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"))
+train_df_chunk = pd.read_csv(os.path.join(data_path, "train_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
+#train_df = train_df[:1000]
+test_public_df_chunk = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"), usecols=['comment_text'], chunksize=40000)
 # test_public_df = test_public_df.loc[:, ['toxicity', 'comment_text']].dropna()[:500]
-test_private_df = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"))
+test_private_df_chunk = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"), usecols=['comment_text'], chunksize=40000)
 # test_private_df = test_private_df.loc[:, ['toxicity', 'comment_text']].dropna()[:500]
-
-# split
-train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=13, shuffle=True)
-
-y_train = train_df[TARGET_COLUMN].values.reshape((-1, 1))
-y_val = val_df[TARGET_COLUMN].values.reshape((-1, 1))
-y_public_test = test_public_df[TOXICITY_COLUMN].values.reshape((-1, 1))
-y_private_test = test_private_df[TOXICITY_COLUMN].values.reshape((-1, 1))
-
-train_df[TARGET_COLUMN] = np.where(train_df[TARGET_COLUMN] >= 0.5, 1, 0)
-test_public_df[TOXICITY_COLUMN] = np.where(test_public_df[TOXICITY_COLUMN] >= 0.5, 1, 0)
-test_private_df[TOXICITY_COLUMN] = np.where(test_private_df[TOXICITY_COLUMN] >= 0.5, 1, 0)
-val_df[TARGET_COLUMN] = np.where(val_df[TARGET_COLUMN] >= 0.5, 1, 0)
-
-gc.collect()
-"""# Get datasets"""
-
 tokenizer_transformer = AutoTokenizer.from_pretrained(model_name)
 
-sample_weights_train = np.ones(len(train_df), dtype=np.float32)
-sample_weights_val = np.ones(len(val_df), dtype=np.float32)
 
-
-def encode_examples(df, PATH, sample_weights=None, labels=None, forTest=False):
+def encode_examples(df, PATH, index, sample_weights=None, labels=None, forTest=False):
 	# prepare list, so that we can build up final TensorFlow dataset from slices.
 
 	if not os.path.exists(PATH):
@@ -85,39 +66,57 @@ def encode_examples(df, PATH, sample_weights=None, labels=None, forTest=False):
 		)
 	del df
 	gc.collect()
-	with open(PATH + '/input_ids.npy', 'wb') as filehandle:
+	with open(PATH + '/' + str(index) + '_input_ids.npy', 'wb') as filehandle:
 		# store the data as binary data stream
 		np.save(filehandle, np.asarray(_input['input_ids']))
 
-	with open(PATH + '/input_mask.npy', 'wb') as filehandle:
+	with open(PATH + '/' + str(index) + '_input_mask.npy', 'wb') as filehandle:
 		# store the data as binary data stream
 		np.save(filehandle, np.asarray(_input['attention_mask']))
 
 	del _input
 	gc.collect()
 	if not forTest:
-		with open(PATH + '/labels.npy', 'wb') as filehandle:
+		with open(PATH + '/' + str(index) + '_labels.npy', 'wb') as filehandle:
 			# store the data as binary data stream
 			np.save(filehandle, np.asarray(labels))
-		with open(PATH + '/sample_weights.npy', 'wb') as filehandle:
+		with open(PATH + '/' + str(index) + '_sample_weights.npy', 'wb') as filehandle:
 			# store the data as binary data stream
 			np.save(filehandle, np.asarray(sample_weights))
 
 
 print("Start preprocess..")
-encode_examples(train_df,
-				os.path.join(saving_path, 'train'),
-				sample_weights_train, y_train)
+for index, chunk in enumerate(train_df_chunk):
+	y_train = chunk[TARGET_COLUMN].values.reshape((-1, 1))
+	sample_weights_train = np.ones(len(chunk), dtype=np.float32)
+
+	encode_examples(
+		df=chunk,
+		PATH=os.path.join(saving_path, 'train'),
+		index=index,
+		sample_weights=sample_weights_train,
+		labels=y_train,
+		)
+
 print("Finished train data..")
-encode_examples(val_df,
-				os.path.join(saving_path, 'val'),
-				sample_weights_val, y_val)
-print("Finished val data..")
-encode_examples(test_private_df,
-				os.path.join(saving_path, 'test_private'),
-				forTest=True)
+
+for index, chunk in enumerate(test_private_df_chunk):
+
+	encode_examples(
+		df=chunk,
+		PATH=os.path.join(saving_path, 'test_private'),
+		index=index,
+		forTest=True,
+		)
+
 print("Finished test private data..")
-encode_examples(test_public_df,
-				os.path.join(saving_path, 'test_public'),
-				forTest=True)
+
+for index, chunk in enumerate(test_public_df_chunk):
+
+	encode_examples(
+		df=chunk,
+		PATH=os.path.join(saving_path, 'test_public'),
+		index=index,
+		forTest=True,
+		)
 print("Finished test public data..")
