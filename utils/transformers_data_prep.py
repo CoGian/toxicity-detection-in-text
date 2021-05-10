@@ -43,6 +43,8 @@ TOXICITY_COLUMN = 'toxicity'
 
 train_df_chunk = pd.read_csv(os.path.join(data_path, "train_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
 #train_df = train_df[:1000]
+val_df_chunk = pd.read_csv(os.path.join(data_path, "val_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
+
 test_public_df_chunk = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"), usecols=['comment_text'], chunksize=40000)
 # test_public_df = test_public_df.loc[:, ['toxicity', 'comment_text']].dropna()[:500]
 test_private_df_chunk = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"), usecols=['comment_text'], chunksize=40000)
@@ -99,6 +101,21 @@ for index, chunk in enumerate(train_df_chunk):
 		)
 
 print("Finished train data..")
+
+
+for index, chunk in enumerate(val_df_chunk):
+	y_val = chunk[TARGET_COLUMN].values.reshape((-1, 1))
+	sample_weights_val = np.ones(len(chunk), dtype=np.float32)
+
+	encode_examples(
+		df=chunk,
+		PATH=os.path.join(saving_path, 'val'),
+		index=index,
+		sample_weights=sample_weights_val,
+		labels=y_val,
+		)
+
+print("Finished val data..")
 
 for index, chunk in enumerate(test_private_df_chunk):
 

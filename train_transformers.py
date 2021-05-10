@@ -5,7 +5,7 @@ from transformers import *
 import numpy as np
 import gc
 import os
-
+import glob
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -80,17 +80,33 @@ TOXICITY_COLUMN = 'toxicity'
 
 
 def get_dataset(PATH):
-	with open(PATH + '/input_ids.npy', 'rb') as f:
-		input_ids = np.load(f)
+	filenames = glob.glob(PATH + '/*_input_ids.npy', recursive=False)
+	for index, fname in enumerate(sorted(filenames)):
+		if index == 0:
+			input_ids = np.load(fname, allow_pickle=True)
+		else:
+			input_ids = np.concatenate((input_ids, np.load(fname, allow_pickle=True)), axis=0)
 
-	with open(PATH + '/input_mask.npy', 'rb') as f:
-		attention_mask = np.load(f)
+	filenames = glob.glob(PATH + '/*_input_mask.npy', recursive=False)
+	for index, fname in enumerate(sorted(filenames)):
+		if index == 0:
+			attention_mask = np.load(fname, allow_pickle=True)
+		else:
+			attention_mask = np.concatenate((attention_mask, np.load(fname, allow_pickle=True)), axis=0)
 
-	with open(PATH + '/labels.npy', 'rb') as f:
-		labels = np.load(f)
+	filenames = glob.glob(PATH + '/*_labels.npy', recursive=False)
+	for index, fname in enumerate(sorted(filenames)):
+		if index == 0:
+			labels = np.load(fname, allow_pickle=True)
+		else:
+			labels = np.concatenate((labels, np.load(fname, allow_pickle=True)), axis=0)
 
-	with open(PATH + '/sample_weights.npy', 'rb') as f:
-		sample_weights = np.load(f)
+	filenames = glob.glob(PATH + '/*_sample_weights.npy', recursive=False)
+	for index, fname in enumerate(sorted(filenames)):
+		if index == 0:
+			sample_weights = np.load(fname, allow_pickle=True)
+		else:
+			sample_weights = np.concatenate((sample_weights, np.load(fname, allow_pickle=True)), axis=0)
 
 	return tf.data.Dataset.from_tensor_slices((
 		{"input_word_ids": input_ids, "input_mask": attention_mask},

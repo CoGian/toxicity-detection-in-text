@@ -10,6 +10,7 @@ import pickle
 import operator
 import string
 import argparse
+from sklearn.model_selection import train_test_split
 
 """
 # Preprocessing
@@ -116,14 +117,8 @@ gc.collect()
 
 latin_similar = "’'‘ÆÐƎƏƐƔĲŊŒẞÞǷȜæðǝəɛɣĳŋœĸſßþƿȝĄƁÇĐƊĘĦĮƘŁØƠŞȘŢȚŦŲƯY̨Ƴąɓçđɗęħįƙłøơşșţțŧųưy̨ƴÁÀÂÄǍĂĀÃÅǺĄÆǼǢƁĆĊĈČÇĎḌĐƊÐÉÈĖÊËĚĔĒĘẸƎƏƐĠĜǦĞĢƔáàâäǎăāãåǻąæǽǣɓćċĉčçďḍđɗðéèėêëěĕēęẹǝəɛġĝǧğģɣĤḤĦIÍÌİÎÏǏĬĪĨĮỊĲĴĶƘĹĻŁĽĿʼNŃN̈ŇÑŅŊÓÒÔÖǑŎŌÕŐỌØǾƠŒĥḥħıíìiîïǐĭīĩįịĳĵķƙĸĺļłľŀŉńn̈ňñņŋóòôöǒŏōõőọøǿơœŔŘŖŚŜŠŞȘṢẞŤŢṬŦÞÚÙÛÜǓŬŪŨŰŮŲỤƯẂẀŴẄǷÝỲŶŸȲỸƳŹŻŽẒŕřŗſśŝšşșṣßťţṭŧþúùûüǔŭūũűůųụưẃẁŵẅƿýỳŷÿȳỹƴźżžẓ"
 white_list = string.ascii_letters + string.digits + latin_similar + ' ' + "'"
-
-"""Print all symbols that we have an embedding vector for."""
-
 glove_chars = ''.join([c for c in glove_embeddings if len(c) == 1])
 glove_symbols = ''.join([c for c in glove_chars if not c in white_list])
-
-"""Print symbols in our comments """
-
 jigsaw_chars = build_vocab(list(train_df["comment_text"]))
 jigsaw_symbols = ''.join([c for c in jigsaw_chars if not c in white_list])
 
@@ -143,20 +138,6 @@ def handle_punctuation(x):
 	return x
 
 
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: handle_punctuation(x))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: handle_punctuation(x))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: handle_punctuation(x))
-
-"""Check Coverage"""
-
-vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
-unknown_words = check_coverage(vocab, glove_embeddings)
-print("Top 10 Unknown words:")
-print(unknown_words[:10])
-del vocab
-gc.collect()
-"""Now lets split standard contraction that will fix the issue with the ' punctuation"""
-
 tokenizer = TreebankWordTokenizer()
 
 
@@ -166,44 +147,17 @@ def handle_contractions(x):
 	return x
 
 
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: handle_contractions(x))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: handle_contractions(x))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: handle_contractions(x))
-
-"""Check Coverage"""
-
-vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
-unknown_words = check_coverage(vocab, glove_embeddings)
-print("Top 10 Unknown words:")
-print(unknown_words[:10])
-del vocab
-gc.collect()
-"""## Check if lowercase/uppercase a word without embedding , find embedding  """
-
-
-def check_case(comment, embeddings_index):
+def check_case(comment):
+	"""## Check if lowercase/uppercase a word without embedding , find embedding  """
 	comment = comment.split()
 
 	comment = [
-		word if word in embeddings_index else word.lower() if word.lower() in embeddings_index else word.title() if word.title() in embeddings_index else word
+		word if word in glove_embeddings else word.lower() if word.lower() in glove_embeddings else word.title() if word.title() in glove_embeddings else word
 		for word in comment]
 
 	comment = ' '.join(comment)
 	return comment
 
-
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: check_case(x, glove_embeddings))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: check_case(x, glove_embeddings))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: check_case(x, glove_embeddings))
-
-vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
-unknown_words = check_coverage(vocab, glove_embeddings)
-print("Top 10 Unknown words:")
-print(unknown_words[:10])
-del vocab
-gc.collect()
-
-"""## More cleaning of the contractions """
 
 contraction_mapping = {
 	"daesh": "isis", "Qur'an": "quran",
@@ -346,26 +300,11 @@ contraction_mapping = {
 
 
 def clean_contr(x, dic):
+	"""## More cleaning of the contractions """
 	x = x.split()
 	x = [dic[word] if word in dic else dic[word.lower()] if word.lower() in dic else word for word in x]
 	x = ' '.join(x)
 	return x
-
-
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: clean_contr(x, contraction_mapping))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: clean_contr(x, contraction_mapping))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: clean_contr(x, contraction_mapping))
-
-vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
-unknown_words = check_coverage(vocab, glove_embeddings)
-print("Top 10 Unknown words:")
-print(unknown_words[:10])
-del vocab
-gc.collect()
-
-"""## Correct mispelled words
-Correct spelling for a range of known mispelled words taking by https://www.kaggle.com/nz0722/simple-eda-text-preprocessing-jigsaw
-"""
 
 mispell_dict = {'SB91': 'senate bill', 'tRump': 'trump', 'utmterm': 'utm term', 'FakeNews': 'fake news',
 				'Gʀᴇat': 'great', 'ʙᴏᴛtoᴍ': 'bottom', 'washingtontimes': 'washington times', 'garycrum': 'gary crum',
@@ -383,35 +322,38 @@ mispell_dict = {'SB91': 'senate bill', 'tRump': 'trump', 'utmterm': 'utm term', 
 
 
 def correct_spelling(x, dic):
+	"""## Correct mispelled words
+	Correct spelling for a range of known mispelled words taking by https://www.kaggle.com/nz0722/simple-eda-text-preprocessing-jigsaw
+	"""
 	x = x.split()
 	x = [dic[word] if word in dic else dic[word.lower()] if word.lower() in dic else word for word in x]
 	x = ' '.join(x)
 	return x
 
 
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: correct_spelling(x, mispell_dict))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: correct_spelling(x, mispell_dict))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: correct_spelling(x, mispell_dict))
-
-vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
-unknown_words = check_coverage(vocab, glove_embeddings)
-print("Top 10 Unknown words:")
-print(unknown_words[:10])
-del vocab
-gc.collect()
-
-"""## Need to fix the punctuation ' in the start """
-
-
 def del_punctuation_from_start(x, punc):
+	"""## Need to fix the punctuation ' in the start """
 	x = [word[1:] if word.startswith(punc) else word for word in x.split()]
 	x = ' '.join(x)
 	return x
 
 
-train_df['comment_text'] = train_df['comment_text'].apply(lambda x: del_punctuation_from_start(x, "'"))
-test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: del_punctuation_from_start(x, "'"))
-test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: del_punctuation_from_start(x, "'"))
+def preprocess(x):
+	"""Now lets split standard contraction that will fix the issue with the ' punctuation"""
+	x = handle_punctuation(x)
+	x = handle_contractions(x)
+	x = check_case(x)
+	x = clean_contr(x, contraction_mapping)
+	x = correct_spelling(x, mispell_dict)
+	x = del_punctuation_from_start(x, "'")
+	return x
+
+
+train_df['comment_text'] = train_df['comment_text'].apply(lambda x: preprocess(x))
+test_public_df['comment_text'] = test_public_df['comment_text'].apply(lambda x: preprocess(x))
+test_private_df['comment_text'] = test_private_df['comment_text'].apply(lambda x: preprocess(x))
+
+"""Check Coverage"""
 
 vocab = build_vocab(list(train_df['comment_text'].apply(lambda x: x.split())))
 unknown_words = check_coverage(vocab, glove_embeddings)
@@ -421,7 +363,8 @@ del vocab
 gc.collect()
 
 """# Save cleared data sets"""
-
+train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=13, shuffle=True)
 train_df.to_csv(os.path.join(data_path, 'train_cleared.csv'), index=False)
+val_df.to_csv(os.path.join(data_path, 'val_cleared.csv'), index=False)
 test_public_df.to_csv(os.path.join(data_path, 'test_public_cleared.csv'), index=False)
 test_private_df.to_csv(os.path.join(data_path, 'test_private_cleared.csv'), index=False)
