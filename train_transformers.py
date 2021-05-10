@@ -15,6 +15,12 @@ parser.add_argument(
 	default='data'
 )
 parser.add_argument(
+	"--checkpoint_dir",
+	"-cd",
+	help="path to save model checkpoints",
+	default='./roberta-base'
+)
+parser.add_argument(
 	"--model_name",
 	"-m",
 	help="name of transformer model",
@@ -24,7 +30,7 @@ parser.add_argument(
 	"--batch_size",
 	"-b",
 	help="batch size",
-	default=64
+	default=128
 )
 parser.add_argument(
 	"--epochs",
@@ -46,6 +52,7 @@ MODEL = args.model_name
 BATCH_SIZE = args.batch_size
 EPOCHS = args.epochs
 MAX_LEN = args.max_len
+checkpoint_dir = args.checkpoint_dir
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
 
 print(tf.__version__)
@@ -63,7 +70,7 @@ except ValueError:
 if tpu:
 	tf.config.experimental_connect_to_cluster(tpu)
 	tf.tpu.experimental.initialize_tpu_system(tpu)
-	strategy = tf.distribute.experimental.TPUStrategy(tpu)
+	strategy = tf.distribute.TPUStrategy(tpu)
 else:
 	# Default distribution strategy in Tensorflow. Works on CPU and single GPU.
 	strategy = tf.distribute.get_strategy()
@@ -161,10 +168,12 @@ tf.keras.utils.plot_model(
 	to_file=MODEL + '.png')
 
 n_steps = BUFFER_SIZE // BATCH_SIZE
+# Name of the checkpoint files
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
 
 model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-	filepath=MODEL,
-	save_weights_only=True,
+	filepath=checkpoint_prefix,
+	save_weights_only=False,
 	monitor='val_loss',
 	mode='max',
 	save_best_only=True)
