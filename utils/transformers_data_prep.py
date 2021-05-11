@@ -22,6 +22,12 @@ parser.add_argument(
 	default='roberta-base'
 )
 parser.add_argument(
+	"--stamp",
+	"-s",
+	help="stamp for the dataset",
+	default='roberta-base'
+)
+parser.add_argument(
 	"--max_len",
 	"-ml",
 	help="max length of sequence",
@@ -30,9 +36,10 @@ parser.add_argument(
 args = parser.parse_args()
 data_path = args.data_path
 model_name = args.model_name
+stamp = args.stamp
 MAX_LEN = args.max_len
 
-saving_path = os.path.join(data_path, model_name)
+saving_path = os.path.join(data_path, stamp)
 
 if not os.path.exists(saving_path):
 	os.mkdir(saving_path)
@@ -42,13 +49,11 @@ TARGET_COLUMN = 'target'
 TOXICITY_COLUMN = 'toxicity'
 
 train_df_chunk = pd.read_csv(os.path.join(data_path, "train_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
-#train_df = train_df[:1000]
 val_df_chunk = pd.read_csv(os.path.join(data_path, "val_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
 
-test_public_df_chunk = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"), usecols=['comment_text'], chunksize=40000)
-# test_public_df = test_public_df.loc[:, ['toxicity', 'comment_text']].dropna()[:500]
-test_private_df_chunk = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"), usecols=['comment_text'], chunksize=40000)
-# test_private_df = test_private_df.loc[:, ['toxicity', 'comment_text']].dropna()[:500]
+test_public_df_chunk = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"), usecols=[TOXICITY_COLUMN, 'comment_text'], chunksize=40000)
+test_private_df_chunk = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"), usecols=[TOXICITY_COLUMN, 'comment_text'], chunksize=40000)
+
 tokenizer_transformer = AutoTokenizer.from_pretrained(model_name)
 
 
@@ -76,12 +81,14 @@ def encode_examples(df, PATH, index, sample_weights=None, labels=None, forTest=F
 		# store the data as binary data stream
 		np.save(filehandle, np.asarray(_input['attention_mask']))
 
+	with open(PATH + '/' + str(index) + '_labels.npy', 'wb') as filehandle:
+		# store the data as binary data stream
+		np.save(filehandle, np.asarray(labels))
+
 	del _input
 	gc.collect()
 	if not forTest:
-		with open(PATH + '/' + str(index) + '_labels.npy', 'wb') as filehandle:
-			# store the data as binary data stream
-			np.save(filehandle, np.asarray(labels))
+
 		with open(PATH + '/' + str(index) + '_sample_weights.npy', 'wb') as filehandle:
 			# store the data as binary data stream
 			np.save(filehandle, np.asarray(sample_weights))
@@ -118,22 +125,26 @@ for index, chunk in enumerate(val_df_chunk):
 print("Finished val data..")
 
 for index, chunk in enumerate(test_private_df_chunk):
-
+	y_private_test = chunk[TOXICITY_COLUMN].values.reshape((-1, 1))
+	y_private_test = np.where(y_private_test >= .5, 1, 0)
 	encode_examples(
 		df=chunk,
 		PATH=os.path.join(saving_path, 'test_private'),
 		index=index,
+		labels=y_private_test,
 		forTest=True,
 		)
 
 print("Finished test private data..")
 
 for index, chunk in enumerate(test_public_df_chunk):
-
+	y_public_test = chunk[TOXICITY_COLUMN].values.reshape((-1, 1))
+	y_public_test = np.where(y_public_test >= .5, 1, 0)
 	encode_examples(
 		df=chunk,
 		PATH=os.path.join(saving_path, 'test_public'),
 		index=index,
+		labels=y_public_test,
 		forTest=True,
 		)
 print("Finished test public data..")

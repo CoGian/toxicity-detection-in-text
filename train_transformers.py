@@ -6,19 +6,15 @@ import numpy as np
 import gc
 import os
 import glob
+from sklearn import metrics
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
 	"--data_path",
 	"-d",
 	help="path of the datasets",
-	default='data'
-)
-parser.add_argument(
-	"--checkpoint_dir",
-	"-cd",
-	help="path to save model checkpoints",
-	default='./roberta-base'
+	default='data/toy-roberta'
 )
 parser.add_argument(
 	"--model_name",
@@ -30,13 +26,13 @@ parser.add_argument(
 	"--batch_size",
 	"-b",
 	help="batch size",
-	default=128
+	default=256
 )
 parser.add_argument(
 	"--epochs",
 	"-e",
 	help="epochs",
-	default=10
+	default=2
 )
 
 parser.add_argument(
@@ -49,10 +45,10 @@ parser.add_argument(
 args = parser.parse_args()
 data_path = args.data_path
 MODEL = args.model_name
-BATCH_SIZE = args.batch_size
-EPOCHS = args.epochs
-MAX_LEN = args.max_len
-checkpoint_dir = args.checkpoint_dir
+BATCH_SIZE = int(args.batch_size)
+EPOCHS = int(args.epochs)
+MAX_LEN = int(args.max_len)
+
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
 
 print(tf.__version__)
@@ -86,7 +82,7 @@ TOXICITY_COLUMN = 'toxicity'
 """
 
 
-def get_dataset(PATH):
+def get_dataset(PATH, forTest=False):
 	filenames = glob.glob(PATH + '/*_input_ids.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
@@ -101,6 +97,31 @@ def get_dataset(PATH):
 		else:
 			attention_mask = np.concatenate((attention_mask, np.load(fname, allow_pickle=True)), axis=0)
 
+		filenames = glob.glob(PATH + '/*_labels.npy', recursive=False)
+		for index, fname in enumerate(sorted(filenames)):
+			if index == 0:
+				labels = np.load(fname, allow_pickle=True)
+			else:
+				labels = np.concatenate((labels, np.load(fname, allow_pickle=True)), axis=0)
+
+	if not forTest:
+
+		filenames = glob.glob(PATH + '/*_sample_weights.npy', recursive=False)
+		for index, fname in enumerate(sorted(filenames)):
+			if index == 0:
+				sample_weights = np.load(fname, allow_pickle=True)
+			else:
+				sample_weights = np.concatenate((sample_weights, np.load(fname, allow_pickle=True)), axis=0)
+
+		return tf.data.Dataset.from_tensor_slices((
+			{"input_word_ids": input_ids, "input_mask": attention_mask},
+			{"target": labels}, sample_weights))
+	else:
+		return tf.data.Dataset.from_tensor_slices({"input_word_ids": input_ids, "input_mask": attention_mask}).batch(
+			BATCH_SIZE)
+
+
+def get_gold_labels(PATH):
 	filenames = glob.glob(PATH + '/*_labels.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
@@ -108,16 +129,7 @@ def get_dataset(PATH):
 		else:
 			labels = np.concatenate((labels, np.load(fname, allow_pickle=True)), axis=0)
 
-	filenames = glob.glob(PATH + '/*_sample_weights.npy', recursive=False)
-	for index, fname in enumerate(sorted(filenames)):
-		if index == 0:
-			sample_weights = np.load(fname, allow_pickle=True)
-		else:
-			sample_weights = np.concatenate((sample_weights, np.load(fname, allow_pickle=True)), axis=0)
-
-	return tf.data.Dataset.from_tensor_slices((
-		{"input_word_ids": input_ids, "input_mask": attention_mask},
-		{"target": labels}, sample_weights))
+	return labels
 
 
 """# RoBERTa-with-max-avg-pool
@@ -152,9 +164,16 @@ def createTLmodel(transformer_layer):
 """## RoBERTa - base"""
 
 AUTO = tf.data.experimental.AUTOTUNE
-train_inputs_ds = get_dataset(os.path.join(data_path, MODEL + '/train')).repeat().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(AUTO)
+train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train')).repeat().shuffle(BUFFER_SIZE).batch(
+	BATCH_SIZE).prefetch(AUTO)
 gc.collect()
-val_inputs_ds = get_dataset(os.path.join(data_path, MODEL + '/val')).batch(BATCH_SIZE).cache().prefetch(AUTO)
+val_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'val')).batch(BATCH_SIZE).cache().prefetch(AUTO)
+gc.collect()
+test_public_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test_public'), forTest=True)
+y_public_test = get_gold_labels(PATH=os.path.join(data_path, 'test_public'))
+gc.collect()
+test_private_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test_private'), forTest=True)
+y_private_test = get_gold_labels(PATH=os.path.join(data_path, 'test_private'))
 gc.collect()
 
 with strategy.scope():
@@ -168,21 +187,58 @@ tf.keras.utils.plot_model(
 	to_file=MODEL + '.png')
 
 n_steps = BUFFER_SIZE // BATCH_SIZE
-# Name of the checkpoint files
-checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt_{epoch}")
-
-model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-	filepath=checkpoint_prefix,
-	save_weights_only=False,
-	monitor='val_loss',
-	mode='max',
-	save_best_only=True)
-
 
 model.fit(
 	x=train_inputs_ds,
 	validation_data=val_inputs_ds,
 	epochs=EPOCHS,
 	verbose=1,
-	steps_per_epoch=n_steps,
-	callbacks=[model_checkpoint_callback])
+	steps_per_epoch=n_steps)
+
+y_public_pred = model.predict(test_public_inputs_ds, verbose=1)
+y_private_pred = model.predict(test_private_inputs_ds, verbose=1)
+
+
+def evaluate_csl(y_private_pred, y_public_pred, y_private_test, y_public_test, PATH):
+	y_private_pred = np.where(y_private_pred >= .5, 1, 0)
+	y_public_pred = np.where(y_public_pred >= .5, 1, 0)
+
+	cost_m = [[0.5, 2], [1, 0]]
+
+	public_acc = metrics.accuracy_score(y_public_test, y_public_pred)
+	print('Accuracy on public test: {:f}'.format(public_acc))
+	public_prec = metrics.precision_score(y_public_test, y_public_pred, average='macro')
+	public_rec = metrics.recall_score(y_public_test, y_public_pred, average='macro')
+	public_f1 = metrics.f1_score(y_public_test, y_public_pred, average='macro')
+	public_confusion_matrix = metrics.confusion_matrix(y_public_test, y_public_pred).T
+	public_loss = np.sum(public_confusion_matrix * cost_m)
+
+	print(public_confusion_matrix)
+
+	private_acc = metrics.accuracy_score(y_private_test, y_private_pred)
+	print('Accuracy on private test: {:f}'.format(private_acc))
+	private_prec = metrics.precision_score(y_private_test, y_private_pred, average='macro')
+	private_rec = metrics.recall_score(y_private_test, y_private_pred, average='macro')
+	private_f1 = metrics.f1_score(y_private_test, y_private_pred, average='macro')
+	private_confusion_matrix = metrics.confusion_matrix(y_private_test, y_private_pred).T
+	private_loss = np.sum(private_confusion_matrix * cost_m)
+
+	print(private_confusion_matrix)
+
+	stats = {
+		'Acc. public': public_acc,
+		'Prec. public': public_prec,
+		'Rec. public': public_rec,
+		'F1 public': public_f1,
+		'Public cost loss': public_loss,
+		'Acc. private': private_acc,
+		'Prec. private': private_prec,
+		'Rec. private': private_rec,
+		'F1 private': private_f1,
+		'Private cost loss': private_loss}
+	report_df = pd.DataFrame([stats])
+	report_df = report_df.round(4)
+	report_df.to_csv(PATH + '/report.csv')
+
+
+evaluate_csl(y_private_pred, y_public_pred, y_private_test, y_public_test, PATH=data_path)
