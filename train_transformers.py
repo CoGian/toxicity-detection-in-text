@@ -1,5 +1,4 @@
 import argparse
-
 import tensorflow as tf
 from transformers import *
 import numpy as np
@@ -8,6 +7,7 @@ import os
 import glob
 from sklearn import metrics
 import pandas as pd
+from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -34,12 +34,23 @@ parser.add_argument(
 	help="epochs",
 	default=2
 )
-
 parser.add_argument(
 	"--max_len",
 	"-ml",
 	help="max length of sequence",
 	default=128
+)
+parser.add_argument(
+	"--mode",
+	"-md",
+	help="mode of cost-sensitivity learning or class imbalance",
+	default="vanilla"
+)
+parser.add_argument(
+	"--save_path",
+	"-s",
+	help="path to save results",
+	default="vanilla_results"
 )
 
 args = parser.parse_args()
@@ -48,7 +59,7 @@ MODEL = args.model_name
 BATCH_SIZE = int(args.batch_size)
 EPOCHS = int(args.epochs)
 MAX_LEN = int(args.max_len)
-
+mode = args.mode
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
 
 print(tf.__version__)
@@ -82,7 +93,7 @@ TOXICITY_COLUMN = 'toxicity'
 """
 
 
-def get_dataset(PATH, forTest=False):
+def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 	filenames = glob.glob(PATH + '/*_input_ids.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
@@ -113,24 +124,26 @@ def get_dataset(PATH, forTest=False):
 			else:
 				sample_weights = np.concatenate((sample_weights, np.load(fname, allow_pickle=True)), axis=0)
 
+		if forTrain:
+			if mode == "under_sampling":
+				X = np.array(list(zip(input_ids, attention_mask)))
+				X, labels = stratification_undersample(X, labels, per=0.66)
+				input_ids, attention_mask = X.T
+			elif mode == "rejection_sampling":
+				X = np.array(list(zip(input_ids, attention_mask)))
+				X, labels = rejection_sampling(X, labels)
+				input_ids, attention_mask = X.T
+			elif mode == "example_weighting":
+				sample_weights = example_weighting(labels)
+			elif mode == "vanilla":
+				pass
+
 		return tf.data.Dataset.from_tensor_slices((
 			{"input_word_ids": input_ids, "input_mask": attention_mask},
 			{"target": labels}, sample_weights))
 	else:
 		return tf.data.Dataset.from_tensor_slices({"input_word_ids": input_ids, "input_mask": attention_mask}).batch(
-			BATCH_SIZE)
-
-
-def get_gold_labels(PATH):
-	filenames = glob.glob(PATH + '/*_labels.npy', recursive=False)
-	for index, fname in enumerate(sorted(filenames)):
-		if index == 0:
-			labels = np.load(fname, allow_pickle=True)
-		else:
-			labels = np.concatenate((labels, np.load(fname, allow_pickle=True)), axis=0)
-
-	return labels
-
+			BATCH_SIZE), labels
 
 """# RoBERTa-with-max-avg-pool
 ## Create Model
@@ -164,13 +177,12 @@ def createTLmodel(transformer_layer):
 """## RoBERTa - base"""
 
 AUTO = tf.data.experimental.AUTOTUNE
-train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train')).repeat().shuffle(BUFFER_SIZE).batch(
+train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train'), mode=mode, forTrain=True).repeat().shuffle(BUFFER_SIZE).batch(
 	BATCH_SIZE).prefetch(AUTO)
 gc.collect()
 val_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'val')).batch(BATCH_SIZE).cache().prefetch(AUTO)
 gc.collect()
-test_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test'), forTest=True)
-y_test = get_gold_labels(PATH=os.path.join(data_path, 'test'))
+test_inputs_ds, y_test = get_dataset(PATH=os.path.join(data_path, 'test'), forTest=True)
 gc.collect()
 
 with strategy.scope():
@@ -201,7 +213,7 @@ def evaluate_csl(y_test, y_pred, PATH):
 	with open(PATH + '/y_pred.npy', 'wb') as f:
 		np.save(f, y_pred)
 
-	cost_m = [[0.5, 2], [1, 0]]
+	cost_m = [[0.1, 2], [1, 0]]
 
 	acc = metrics.accuracy_score(y_test, y_pred)
 	print('Accuracy on test: {:f}'.format(acc))
