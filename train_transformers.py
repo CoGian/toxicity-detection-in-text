@@ -169,11 +169,8 @@ train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train')).repeat().sh
 gc.collect()
 val_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'val')).batch(BATCH_SIZE).cache().prefetch(AUTO)
 gc.collect()
-test_public_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test_public'), forTest=True)
-y_public_test = get_gold_labels(PATH=os.path.join(data_path, 'test_public'))
-gc.collect()
-test_private_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test_private'), forTest=True)
-y_private_test = get_gold_labels(PATH=os.path.join(data_path, 'test_private'))
+test_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'test'), forTest=True)
+y_test = get_gold_labels(PATH=os.path.join(data_path, 'test'))
 gc.collect()
 
 with strategy.scope():
@@ -195,55 +192,36 @@ model.fit(
 	verbose=1,
 	steps_per_epoch=n_steps)
 
-y_public_pred = model.predict(test_public_inputs_ds, verbose=1)
-y_private_pred = model.predict(test_private_inputs_ds, verbose=1)
+y_pred = model.predict(test_inputs_ds, verbose=1)
 
 
-def evaluate_csl(y_private_pred, y_public_pred, y_private_test, y_public_test, PATH):
-	y_private_pred = np.where(y_private_pred >= .5, 1, 0)
-	y_public_pred = np.where(y_public_pred >= .5, 1, 0)
+def evaluate_csl(y_test, y_pred, PATH):
+	y_pred = np.where(y_pred >= .5, 1, 0)
 
-	with open(PATH + '/y_public_pred.npy', 'wb') as f:
-		np.save(f , y_public_pred)
-	with open(PATH + '/y_private_pred.npy', 'wb') as f:
-		np.save(f, y_private_pred)
+	with open(PATH + '/y_pred.npy', 'wb') as f:
+		np.save(f, y_pred)
 
 	cost_m = [[0.5, 2], [1, 0]]
 
-	public_acc = metrics.accuracy_score(y_public_test, y_public_pred)
-	print('Accuracy on public test: {:f}'.format(public_acc))
-	public_prec = metrics.precision_score(y_public_test, y_public_pred, average='macro')
-	public_rec = metrics.recall_score(y_public_test, y_public_pred, average='macro')
-	public_f1 = metrics.f1_score(y_public_test, y_public_pred, average='macro')
-	public_confusion_matrix = metrics.confusion_matrix(y_public_test, y_public_pred).T
-	public_loss = np.sum(public_confusion_matrix * cost_m)
+	acc = metrics.accuracy_score(y_test, y_pred)
+	print('Accuracy on test: {:f}'.format(acc))
+	prec = metrics.precision_score(y_test, y_pred, average='macro')
+	rec = metrics.recall_score(y_test, y_pred, average='macro')
+	f1 = metrics.f1_score(y_test, y_pred, average='macro')
+	confusion_matrix = metrics.confusion_matrix(y_test, y_pred).T
+	loss = np.sum(confusion_matrix * cost_m)
 
-	print(public_confusion_matrix)
-
-	private_acc = metrics.accuracy_score(y_private_test, y_private_pred)
-	print('Accuracy on private test: {:f}'.format(private_acc))
-	private_prec = metrics.precision_score(y_private_test, y_private_pred, average='macro')
-	private_rec = metrics.recall_score(y_private_test, y_private_pred, average='macro')
-	private_f1 = metrics.f1_score(y_private_test, y_private_pred, average='macro')
-	private_confusion_matrix = metrics.confusion_matrix(y_private_test, y_private_pred).T
-	private_loss = np.sum(private_confusion_matrix * cost_m)
-
-	print(private_confusion_matrix)
+	print(confusion_matrix)
 
 	stats = {
-		'Acc. public': public_acc,
-		'Prec. public': public_prec,
-		'Rec. public': public_rec,
-		'F1 public': public_f1,
-		'Public cost loss': public_loss,
-		'Acc. private': private_acc,
-		'Prec. private': private_prec,
-		'Rec. private': private_rec,
-		'F1 private': private_f1,
-		'Private cost loss': private_loss}
+		'Accuracy': acc,
+		'Precision': prec,
+		'Recall': rec,
+		'F1': f1,
+		'cost loss': loss}
 	report_df = pd.DataFrame([stats])
 	report_df = report_df.round(4)
 	report_df.to_csv(PATH + '/report.csv')
 
 
-evaluate_csl(y_private_pred, y_public_pred, y_private_test, y_public_test, PATH=data_path)
+evaluate_csl(y_test, y_pred, PATH=data_path)

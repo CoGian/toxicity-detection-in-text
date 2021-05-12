@@ -51,8 +51,7 @@ TOXICITY_COLUMN = 'toxicity'
 train_df_chunk = pd.read_csv(os.path.join(data_path, "train_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
 val_df_chunk = pd.read_csv(os.path.join(data_path, "val_cleared.csv"), usecols=[TARGET_COLUMN, 'comment_text'], chunksize=40000)
 
-test_public_df_chunk = pd.read_csv(os.path.join(data_path, "test_public_cleared.csv"), usecols=[TOXICITY_COLUMN, 'comment_text'], chunksize=40000)
-test_private_df_chunk = pd.read_csv(os.path.join(data_path, "test_private_cleared.csv"), usecols=[TOXICITY_COLUMN, 'comment_text'], chunksize=40000)
+test_df_chunk = pd.read_csv(os.path.join(data_path, "test_cleared.csv"), usecols=[TOXICITY_COLUMN, 'comment_text'], chunksize=40000)
 
 tokenizer_transformer = AutoTokenizer.from_pretrained(model_name)
 
@@ -124,27 +123,15 @@ for index, chunk in enumerate(val_df_chunk):
 
 print("Finished val data..")
 
-for index, chunk in enumerate(test_private_df_chunk):
-	y_private_test = chunk[TOXICITY_COLUMN].values.reshape((-1, 1))
-	y_private_test = np.where(y_private_test >= .5, 1, 0)
+for index, chunk in enumerate(test_df_chunk):
+	y_test = chunk[TOXICITY_COLUMN].values.reshape((-1, 1))
+	y_test = np.where(y_test >= .5, 1, 0)
 	encode_examples(
 		df=chunk,
-		PATH=os.path.join(saving_path, 'test_private'),
+		PATH=os.path.join(saving_path, 'test'),
 		index=index,
-		labels=y_private_test,
+		labels=y_test,
 		forTest=True,
 		)
 
-print("Finished test private data..")
-
-for index, chunk in enumerate(test_public_df_chunk):
-	y_public_test = chunk[TOXICITY_COLUMN].values.reshape((-1, 1))
-	y_public_test = np.where(y_public_test >= .5, 1, 0)
-	encode_examples(
-		df=chunk,
-		PATH=os.path.join(saving_path, 'test_public'),
-		index=index,
-		labels=y_public_test,
-		forTest=True,
-		)
-print("Finished test public data..")
+print("Finished test data..")

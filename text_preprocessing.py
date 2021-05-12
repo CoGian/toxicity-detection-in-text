@@ -366,5 +366,6 @@ gc.collect()
 train_df, val_df = train_test_split(train_df, test_size=0.2, random_state=13, shuffle=True)
 train_df.to_csv(os.path.join(data_path, 'train_cleared.csv'), index=False)
 val_df.to_csv(os.path.join(data_path, 'val_cleared.csv'), index=False)
-test_public_df.to_csv(os.path.join(data_path, 'test_public_cleared.csv'), index=False)
-test_private_df.to_csv(os.path.join(data_path, 'test_private_cleared.csv'), index=False)
+
+pd.concat([test_public_df, test_private_df])\
+	.to_csv(os.path.join(data_path, 'test_cleared.csv'), index=False)
