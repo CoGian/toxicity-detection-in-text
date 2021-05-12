@@ -14,3 +14,5 @@ sentencepiece~=0.1.95
 pydot~=1.4.2
 graphviz~=0.16
 pyyaml~=5.4.1
+imblearn~=0.0
+costcla~=0.6
