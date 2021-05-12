@@ -60,8 +60,11 @@ BATCH_SIZE = int(args.batch_size)
 EPOCHS = int(args.epochs)
 MAX_LEN = int(args.max_len)
 mode = args.mode
+saving_path = args.save_path
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
 
+if not os.path.exists(saving_path):
+	os.mkdir(saving_path)
 print(tf.__version__)
 """  # TPU Configs"""
 
