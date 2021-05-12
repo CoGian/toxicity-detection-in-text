@@ -203,6 +203,11 @@ def evaluate_csl(y_private_pred, y_public_pred, y_private_test, y_public_test, P
 	y_private_pred = np.where(y_private_pred >= .5, 1, 0)
 	y_public_pred = np.where(y_public_pred >= .5, 1, 0)
 
+	with open(PATH + '/y_public_pred.npy', 'wb') as f:
+		np.save(f , y_public_pred)
+	with open(PATH + '/y_private_pred.npy', 'wb') as f:
+		np.save(f, y_private_pred)
+
 	cost_m = [[0.5, 2], [1, 0]]
 
 	public_acc = metrics.accuracy_score(y_public_test, y_public_pred)
