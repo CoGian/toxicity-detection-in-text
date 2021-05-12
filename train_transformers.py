@@ -129,18 +129,25 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 
 		if forTrain:
 			if mode == "under_sampling":
+				print("Under Sampling...")
 				X = np.array(list(zip(input_ids, attention_mask)))
 				X, labels = stratification_undersample(X, labels, per=0.66)
 				input_ids, attention_mask = X.T
+				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
+				print("Rejection Sampling...")
 				X = np.array(list(zip(input_ids, attention_mask)))
 				X, labels = rejection_sampling(X, labels)
 				input_ids, attention_mask = X.T
+				print("New length of dataset", input_ids.shape[0])
 			elif mode == "example_weighting":
+				print("Weighting ..")
 				sample_weights = example_weighting(labels)
 			elif mode == "vanilla":
 				pass
 
+		global BUFFER_SIZE
+		BUFFER_SIZE = len(input_ids)
 		return tf.data.Dataset.from_tensor_slices((
 			{"input_word_ids": input_ids, "input_mask": attention_mask},
 			{"target": labels}, sample_weights))
