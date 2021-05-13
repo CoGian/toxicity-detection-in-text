@@ -130,13 +130,13 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 		if forTrain:
 			if mode == "under_sampling":
 				print("Under Sampling...")
-				X = np.array(list(zip(input_ids, attention_mask)))
+				X = np.dstack((input_ids, attention_mask))
 				X, labels = stratification_undersample(X, labels, per=0.66)
 				input_ids, attention_mask = X.T
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
 				print("Rejection Sampling...")
-				X = np.array(list(zip(input_ids, attention_mask)))
+				X = np.dstack((input_ids, attention_mask))
 				X, labels = rejection_sampling(X, labels)
 				input_ids, attention_mask = X.T
 				print("New length of dataset", input_ids.shape[0])
