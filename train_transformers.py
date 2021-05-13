@@ -148,6 +148,7 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			elif mode == "example_weighting":
 				print("Weighting ..")
 				print(labels.shape)
+				print(labels)
 				sample_weights = example_weighting(labels)
 			elif mode == "vanilla":
 				pass
