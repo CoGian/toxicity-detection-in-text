@@ -137,8 +137,8 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				X = np.dstack((input_ids, attention_mask))
 				X, labels = stratification_undersample(X, labels, per=0.66, dimensions=3)
 				input_ids, attention_mask = np.dsplit(X, 2)
-				input_ids = input_ids.reshape(1, -1)
-				attention_mask = attention_mask.reshape(1, -1)
+				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = attention_mask.reshape(attention_mask.shape[0], -1)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
