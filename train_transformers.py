@@ -131,8 +131,13 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			if mode == "under_sampling":
 				print("Under Sampling...")
 				X = np.dstack((input_ids, attention_mask))
+				del input_ids
+				del attention_mask
+				gc.collect()
 				X, labels = stratification_undersample(X, labels, per=0.66)
 				input_ids, attention_mask = X.T
+				del X
+				gc.collect()
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
 				print("Rejection Sampling...")
@@ -142,6 +147,7 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "example_weighting":
 				print("Weighting ..")
+				print(labels.shape)
 				sample_weights = example_weighting(labels)
 			elif mode == "vanilla":
 				pass
