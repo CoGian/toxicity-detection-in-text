@@ -16,8 +16,8 @@ def stratification_undersample(X, y, per=0.66):
        """
     n_samples = X.shape[0]
 
-    filter_1 = y >= .5
-    filter_0 = y < .5
+    filter_1 = np.where(y >= .5, True, False)
+    filter_0 = np.where(y < .5, True, False)
 
     y1 = y[filter_1]
     y0 = y[filter_0]
@@ -51,7 +51,8 @@ def rejection_sampling(X, y):
     cost_mat = np.tile(np.array([fp, fn, tp, tn]), (len(y), 1))
 
     cost_mis = cost_mat[:, 0]
-    cost_mis[y >= 0.5] = cost_mat[y >= 0.5, 1]
+    filter_1 = np.where(y >= .5, True, False)
+    cost_mis[filter_1] = cost_mat[filter_1, 1]
 
     wc = cost_mis / cost_mis.max()
 
