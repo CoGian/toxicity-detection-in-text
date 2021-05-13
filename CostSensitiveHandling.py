@@ -19,7 +19,7 @@ def stratification_undersample(X, y, per=0.66, dimensions=2):
     n_samples = X.shape[0]
 
     filter_1 = np.where(y >= .5, True, False)
-    filter_0 = np.where(y < .5, True, False)
+    filter_0 = np.where(y < .5, True, False).reshape(1, -1)
 
     y1 = y[filter_1]
     y0 = y[filter_0]
