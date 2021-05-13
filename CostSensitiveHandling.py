@@ -4,7 +4,7 @@ cost_m = [[0.1, 2], [1, 0]]
 
 
 def stratification_undersample(X, y, per=0.66):
-    """Under-sampling.This method was taken and modified from https://github.com/albahnsen/CostSensitiveClassification/blob/master/costcla/sampling/sampling.py
+    """Under-sampling.
        Parameters
        ----------
            X : array-like of shape = [n_samples, n_features]
@@ -15,26 +15,27 @@ def stratification_undersample(X, y, per=0.66):
                Percentage of the minority class in the under-sampled data
        """
     n_samples = X.shape[0]
-    num_y1 = np.where(y >= .5, 1, 0).sum()
+
+    filter_1 = y >= .5
+    filter_0 = y < .5
+
+    y1 = y[filter_1]
+    y0 = y[filter_0]
+    x1 = X[filter_1]
+    x0 = X[filter_0]
+    num_y1 = y1.shape[0]
+
     num_y0 = n_samples - num_y1
+    num_y0_new = num_y1 * 1.0 / per - num_y1
+    perc_to_keep = num_y0_new / num_y0
 
-    filter_rand = np.random.rand(int(num_y1 + num_y0))
+    rej_rand = np.random.rand(num_y0)
+    filter_ = rej_rand <= perc_to_keep
 
-    if num_y1 < num_y0:
-        num_y0_new = num_y1 * 1.0 / per - num_y1
-        num_y0_new_per = num_y0_new * 1.0 / num_y0
-        filter_0 = np.logical_and(y < .5, filter_rand <= num_y0_new_per)
-        filter_ = np.nonzero(np.logical_or(y >= .5, filter_0))[0]
-    else:
-        num_y1_new = num_y0 * 1.0 / per - num_y0
-        num_y1_new_per = num_y1_new * 1.0 / num_y1
-        filter_1 = np.logical_and(y >= .5, filter_rand <= num_y1_new_per)
-        filter_ = np.nonzero(np.logical_or(y < .5, filter_1))[0]
+    x0 = x0[filter_]
+    y0 = y0[filter_]
 
-    X = X[filter_, :]
-    y = y[filter_]
-
-    return X, y
+    return np.concatenate((x0, x1)), np.concatenate((y0, y1))
 
 
 def rejection_sampling(X, y):
@@ -77,6 +78,6 @@ if __name__ == '__main__':
     X = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]])
     y = np.array([.1, .2, .7, .8, .5, .6, .1, .2, .1, .2])
 
-    # print(stratification_sample(X, y))
-    print(example_weighting(y))
+    print(stratification_undersample(X, y))
+    # print(example_weighting(y))
     # print(rejection_sampling(X, y))

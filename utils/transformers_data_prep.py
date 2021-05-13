@@ -2,7 +2,6 @@ import gc
 
 import pandas as pd
 from transformers import *
-from sklearn.model_selection import train_test_split
 import numpy as np
 import argparse
 import os
@@ -22,9 +21,9 @@ parser.add_argument(
 	default='roberta-base'
 )
 parser.add_argument(
-	"--stamp",
+	"--saving_path",
 	"-s",
-	help="stamp for the dataset",
+	help="saving path for the dataset",
 	default='roberta-base'
 )
 parser.add_argument(
@@ -36,10 +35,8 @@ parser.add_argument(
 args = parser.parse_args()
 data_path = args.data_path
 model_name = args.model_name
-stamp = args.stamp
+saving_path = args.saving_path
 MAX_LEN = args.max_len
-
-saving_path = os.path.join(data_path, stamp)
 
 if not os.path.exists(saving_path):
 	os.mkdir(saving_path)
