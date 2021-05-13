@@ -85,7 +85,7 @@ def rejection_sampling(X, y):
     x_cps = X[filter_]
     y_cps = y[filter_]
 
-    filter_1 = np.where(y >= .5, True, False)
+    filter_1 = np.where(y_cps >= .5, True, False)
     y1 = y_cps[filter_1]
     print("Number of examples of class 1: ", y1.shape[0])
     print("Number of examples of class 0: ", y_cps.shape[0] - y1.shape[0])
