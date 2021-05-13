@@ -24,8 +24,8 @@ def stratification_undersample(X, y, per=0.66, dimensions=2):
     y1 = y[filter_1]
     y0 = y[filter_0]
 
-    filter_0 = filter_0.reshape(1, -1)
-    filter_1 = filter_1.reshape(1, -1)
+    filter_0 = filter_0.reshape(-1)
+    filter_1 = filter_1.reshape(-1)
     if dimensions == 3:
         x1 = X[filter_1, :, :]
         x0 = X[filter_0, :, :]
