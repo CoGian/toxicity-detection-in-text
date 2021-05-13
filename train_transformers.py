@@ -100,14 +100,14 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 	filenames = glob.glob(PATH + '/*_input_ids.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
-			input_ids = np.load(fname, allow_pickle=True)
+			input_ids = np.load(fname, allow_pickle=True, mmap_mode="r")
 		else:
-			input_ids = np.concatenate((input_ids, np.load(fname, allow_pickle=True)), axis=0)
+			input_ids = np.concatenate((input_ids, np.load(fname, allow_pickle=True, mmap_mode="r")), axis=0)
 
 	filenames = glob.glob(PATH + '/*_input_mask.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
-			attention_mask = np.load(fname, allow_pickle=True, mmap_mode="r")
+			attention_mask = np.load(fname, allow_pickle=True)
 		else:
 			attention_mask = np.concatenate((attention_mask, np.load(fname, allow_pickle=True)), axis=0)
 
@@ -131,32 +131,8 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			if mode == "under_sampling":
 				print("Under Sampling...")
 				X = np.dstack((input_ids, attention_mask))
-				del input_ids
-				del attention_mask
-				gc.collect()
-				per = 0.66
-				n_samples = X.shape[0]
-				num_y1 = np.where(labels >= .5, 1, 0).sum()
-				num_y0 = n_samples - num_y1
-
-				filter_rand = np.random.rand(int(num_y1 + num_y0))
-
-				if num_y1 < num_y0:
-					num_y0_new = num_y1 * 1.0 / per - num_y1
-					num_y0_new_per = num_y0_new * 1.0 / num_y0
-					filter_0 = np.logical_and(labels < .5, filter_rand <= num_y0_new_per)
-					filter_ = np.nonzero(np.logical_or(labels >= .5, filter_0))[0]
-				else:
-					num_y1_new = num_y0 * 1.0 / per - num_y0
-					num_y1_new_per = num_y1_new * 1.0 / num_y1
-					filter_1 = np.logical_and(labels >= .5, filter_rand <= num_y1_new_per)
-					filter_ = np.nonzero(np.logical_or(labels < .5, filter_1))[0]
-
-				X = X[filter_, :]
-				labels = labels[filter_]
+				X, labels = stratification_undersample(X, labels, per=0.66)
 				input_ids, attention_mask = X.T
-				del X
-				gc.collect()
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
 				print("Rejection Sampling...")
@@ -166,7 +142,6 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "example_weighting":
 				print("Weighting ..")
-				print(labels)
 				sample_weights = example_weighting(labels)
 			elif mode == "vanilla":
 				pass
