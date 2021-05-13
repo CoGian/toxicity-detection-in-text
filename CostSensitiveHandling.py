@@ -31,10 +31,10 @@ def stratification_undersample(X, y, per=0.66):
         filter_1 = np.logical_and(y >= .5, filter_rand <= num_y1_new_per)
         filter_ = np.nonzero(np.logical_or(y < .5, filter_1))[0]
 
-    X_u = X[filter_, :]
-    y_u = y[filter_]
+    X = X[filter_, :]
+    y = y[filter_]
 
-    return X_u, y_u
+    return X, y
 
 
 def rejection_sampling(X, y):
