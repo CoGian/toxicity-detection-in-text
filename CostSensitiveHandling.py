@@ -71,7 +71,7 @@ def rejection_sampling(X, y, dimensions=2):
     cost_mat = np.tile(np.array([fp, fn, tp, tn]), (len(y), 1))
 
     cost_mis = cost_mat[:, 0]
-    filter_1 = np.where(y >= .5, True, False)
+    filter_1 = np.where(y >= .5, True, False).reshape(-1)
     cost_mis[filter_1] = cost_mat[filter_1, 1]
 
     wc = cost_mis / cost_mis.max()
@@ -97,8 +97,8 @@ def example_weighting(y):
 if __name__ == '__main__':
     # testing
     X = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]])
-    X2 = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]])
-    X = np.dstack((X, X2))
+    # X2 = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]])
+    # X = np.dstack((X, X2))
 
     y = np.array([.1, .2, .7, .8, .5, .6, .1, .2, .1, .2])
 
