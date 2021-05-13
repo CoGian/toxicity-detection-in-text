@@ -144,8 +144,10 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			elif mode == "rejection_sampling":
 				print("Rejection Sampling...")
 				X = np.dstack((input_ids, attention_mask))
-				X, labels = rejection_sampling(X, labels)
-				input_ids, attention_mask = X.T
+				X, labels = rejection_sampling(X, labels, dimensions=3)
+				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = attention_mask.reshape(attention_mask.shape[0], -1)
+				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "example_weighting":
 				print("Weighting ..")
