@@ -131,6 +131,9 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			if mode == "under_sampling":
 				print("Under Sampling...")
 				X = np.dstack((input_ids, attention_mask))
+				del input_ids
+				del attention_mask
+				gc.collect()
 				per = 0.66
 				n_samples = X.shape[0]
 				num_y1 = np.where(labels >= .5, 1, 0).sum()
