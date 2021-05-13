@@ -58,7 +58,7 @@ def stratification_undersample(X, y, per=0.66, dimensions=2):
     return np.concatenate((x0, x1)), np.concatenate((y0, y1))
 
 
-def rejection_sampling(X, y, dimensions=2):
+def rejection_sampling(X, y):
     """Rejection sampling. This method was taken and modified from https://github.com/albahnsen/CostSensitiveClassification/blob/master/costcla/sampling/cost_sampling.py
        Parameters
        ----------
@@ -85,6 +85,11 @@ def rejection_sampling(X, y, dimensions=2):
     x_cps = X[filter_]
     y_cps = y[filter_]
 
+    filter_1 = np.where(y >= .5, True, False)
+    y1 = y_cps[filter_1]
+    print("Number of examples of class 1: ", y1.shape[0])
+    print("Number of examples of class 0: ", y_cps.shape[0] - y1.shape[0])
+    print()
     return x_cps, y_cps
 
 
