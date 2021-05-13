@@ -147,14 +147,13 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "example_weighting":
 				print("Weighting ..")
-				print(labels.shape)
 				print(labels)
 				sample_weights = example_weighting(labels)
 			elif mode == "vanilla":
 				pass
 
-		global BUFFER_SIZE
-		BUFFER_SIZE = len(input_ids)
+			global BUFFER_SIZE
+			BUFFER_SIZE = len(input_ids)
 		return tf.data.Dataset.from_tensor_slices((
 			{"input_word_ids": input_ids, "input_mask": attention_mask},
 			{"target": labels}, sample_weights))
