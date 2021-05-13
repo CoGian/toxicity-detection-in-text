@@ -139,6 +139,7 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				input_ids, attention_mask = np.dsplit(X, 2)
 				input_ids = input_ids.reshape(1, -1)
 				attention_mask = attention_mask.reshape(1, -1)
+				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "rejection_sampling":
 				print("Rejection Sampling...")
