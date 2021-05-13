@@ -19,11 +19,12 @@ def stratification_undersample(X, y, per=0.66, dimensions=2):
     n_samples = X.shape[0]
 
     filter_1 = np.where(y >= .5, True, False)
-    filter_0 = np.where(y < .5, True, False).reshape(1, -1)
+    filter_0 = np.where(y < .5, True, False)
 
     y1 = y[filter_1]
     y0 = y[filter_0]
 
+    filter_0 = filter_0.reshape(1, -1)
     if dimensions == 3:
         x1 = X[filter_1, :, :]
         x0 = X[filter_0, :, :]
@@ -97,6 +98,6 @@ if __name__ == '__main__':
     X = np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6], [7, 7], [8, 8], [9, 9], [10, 10]])
     y = np.array([.1, .2, .7, .8, .5, .6, .1, .2, .1, .2])
 
-    print(stratification_undersample(X, y))
+    # print(stratification_undersample(X, y))
     # print(example_weighting(y))
-    # print(rejection_sampling(X, y))
+    print(rejection_sampling(X, y))
