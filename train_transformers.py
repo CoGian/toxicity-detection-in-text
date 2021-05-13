@@ -63,6 +63,10 @@ mode = args.mode
 saving_path = args.save_path
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
 
+seed = 13
+tf.random.set_seed(seed)
+np.random.seed(seed)
+
 if not os.path.exists(saving_path):
 	os.mkdir(saving_path)
 print(tf.__version__)
@@ -248,4 +252,4 @@ def evaluate_csl(y_test, y_pred, PATH):
 	report_df.to_csv(PATH + '/report.csv')
 
 
-evaluate_csl(y_test, y_pred, PATH=data_path)
+evaluate_csl(y_test, y_pred, PATH=saving_path)
