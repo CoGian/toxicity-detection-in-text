@@ -67,10 +67,7 @@ def rejection_sampling(X, y):
 
 
 def example_weighting(y):
-    weights = np.ones(len(y), dtype=np.float32)
-    print(weights.shape)
-    weights[np.where(y >= .5)] = 2.0
-    weights[np.where(y < .5)] = 1.0
+    weights = np.where(y >= .5, 2.0, 1.0)
 
     return weights
 
@@ -81,5 +78,5 @@ if __name__ == '__main__':
     y = np.array([.1, .2, .7, .8, .5, .6, .1, .2, .1, .2])
 
     # print(stratification_sample(X, y))
-    # print(example_weighting(y))
-    print(rejection_sampling(X, y))
+    print(example_weighting(y))
+    # print(rejection_sampling(X, y))
