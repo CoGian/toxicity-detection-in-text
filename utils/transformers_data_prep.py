@@ -74,11 +74,11 @@ def encode_examples(df, PATH, index, sample_weights=None, labels=None, forTest=F
 	gc.collect()
 	with open(PATH + '/' + str(index) + '_input_ids.npy', 'wb') as filehandle:
 		# store the data as binary data stream
-		np.save(filehandle, np.asarray(_input['input_ids']))
+		np.save(filehandle, np.asarray(_input['input_ids'], dtype=np.uint16))
 
 	with open(PATH + '/' + str(index) + '_input_mask.npy', 'wb') as filehandle:
 		# store the data as binary data stream
-		np.save(filehandle, np.asarray(_input['attention_mask']))
+		np.save(filehandle, np.asarray(_input['attention_mask'],  dtype=np.uint16))
 
 	with open(PATH + '/' + str(index) + '_labels.npy', 'wb') as filehandle:
 		# store the data as binary data stream
