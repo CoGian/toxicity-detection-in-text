@@ -100,16 +100,16 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 	filenames = glob.glob(PATH + '/*_input_ids.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
-			input_ids = np.load(fname, allow_pickle=True, mmap_mode="r")
+			input_ids = np.load(fname, allow_pickle=True)
 		else:
-			input_ids = np.concatenate((input_ids, np.load(fname, allow_pickle=True, mmap_mode="r")), axis=0)
+			input_ids = np.concatenate((input_ids, np.load(fname, allow_pickle=True)), axis=0)
 
 	filenames = glob.glob(PATH + '/*_input_mask.npy', recursive=False)
 	for index, fname in enumerate(sorted(filenames)):
 		if index == 0:
 			attention_mask = np.load(fname, allow_pickle=True, mmap_mode="r")
 		else:
-			attention_mask = np.concatenate((attention_mask, np.load(fname, allow_pickle=True, mmap_mode="r")), axis=0)
+			attention_mask = np.concatenate((attention_mask, np.load(fname, allow_pickle=True)), axis=0)
 
 		filenames = glob.glob(PATH + '/*_labels.npy', recursive=False)
 		for index, fname in enumerate(sorted(filenames)):
@@ -117,7 +117,7 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				labels = np.load(fname, allow_pickle=True)
 			else:
 				labels = np.concatenate((labels, np.load(fname, allow_pickle=True)), axis=0)
-
+	gc.collect()
 	if not forTest:
 
 		filenames = glob.glob(PATH + '/*_sample_weights.npy', recursive=False)
