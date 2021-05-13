@@ -68,6 +68,7 @@ def rejection_sampling(X, y):
 
 def example_weighting(y):
     weights = np.ones(len(y), dtype=np.float32)
+    print(weights.shape)
     weights[np.where(y >= .5)] = 2.0
     weights[np.where(y < .5)] = 1.0
 
