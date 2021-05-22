@@ -71,7 +71,7 @@ def rejection_sampling(X, y):
     cost_mat = np.tile(np.array([fp, fn, tp, tn]), (len(y), 1))
 
     cost_mis = cost_mat[:, 0]
-    filter_1 = np.where(y >= .5, True, False)
+    filter_1 = np.where(y >= .5, True, False).reshape(-1)  # careful there
     cost_mis[filter_1] = cost_mat[filter_1, 1]
 
     wc = cost_mis / cost_mis.max()

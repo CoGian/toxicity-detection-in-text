@@ -5,8 +5,7 @@ import numpy as np
 import gc
 import os
 import glob
-from sklearn import metrics
-import pandas as pd
+from utils.evaluate import evaluate
 from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
 
 parser = argparse.ArgumentParser()
@@ -224,33 +223,4 @@ model.fit(
 y_pred = model.predict(test_inputs_ds, verbose=1)
 
 
-def evaluate_csl(y_test, y_pred, PATH):
-	y_pred = np.where(y_pred >= .5, 1, 0)
-
-	with open(PATH + '/y_pred.npy', 'wb') as f:
-		np.save(f, y_pred)
-
-	cost_m = [[0.1, 2], [1, 0]]
-
-	acc = metrics.accuracy_score(y_test, y_pred)
-	print('Accuracy on test: {:f}'.format(acc))
-	prec = metrics.precision_score(y_test, y_pred, average='macro')
-	rec = metrics.recall_score(y_test, y_pred, average='macro')
-	f1 = metrics.f1_score(y_test, y_pred, average='macro')
-	confusion_matrix = metrics.confusion_matrix(y_test, y_pred).T
-	loss = np.sum(confusion_matrix * cost_m)
-
-	print(confusion_matrix)
-
-	stats = {
-		'Accuracy': acc,
-		'Precision': prec,
-		'Recall': rec,
-		'F1': f1,
-		'cost loss': loss}
-	report_df = pd.DataFrame([stats])
-	report_df = report_df.round(4)
-	report_df.to_csv(PATH + '/report.csv')
-
-
-evaluate_csl(y_test, y_pred, PATH=saving_path)
+evaluate(y_test, y_pred, PATH=saving_path)
