@@ -4,9 +4,10 @@ import gc
 import os
 import pandas as pd
 from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import make_pipeline
+from ImbalanceHandling import EasyEnsembleDataset, SMOTEDataset, DensityBasedSamplingDataset
 from utils.evaluate import evaluate
 parser = argparse.ArgumentParser()
 
@@ -15,18 +16,6 @@ parser.add_argument(
 	"-d",
 	help="path of the datasets",
 	default='data'
-)
-parser.add_argument(
-	"--epochs",
-	"-e",
-	help="epochs",
-	default=2
-)
-parser.add_argument(
-	"--max_len",
-	"-ml",
-	help="max length of sequence",
-	default=128
 )
 parser.add_argument(
 	"--mode",
@@ -43,8 +32,6 @@ parser.add_argument(
 
 args = parser.parse_args()
 data_path = args.data_path
-EPOCHS = int(args.epochs)
-MAX_LEN = int(args.max_len)
 mode = args.mode
 saving_path = args.save_path
 
@@ -57,6 +44,7 @@ test = pd.read_csv(os.path.join(data_path, "test_cleared.csv"))
 x_test = test["comment_text"].astype(str).values.reshape(-1, 1)
 y_test = np.where(test["toxicity"].values.reshape((-1, 1)) >= .5, 1, 0)
 
+class_weights = {0: 1, 1: 1}
 del test
 gc.collect()
 if mode == "under_sampling":
@@ -67,7 +55,6 @@ if mode == "under_sampling":
 		per=0.66,
 		dimensions=2)
 
-	class_weights = {0: 1, 1: 1}
 	print("New length of dataset", X.shape[0])
 elif mode == "rejection_sampling":
 	print("Rejection Sampling...")
@@ -75,7 +62,6 @@ elif mode == "rejection_sampling":
 		train["comment_text"].astype(str).values.reshape(-1, 1),
 		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0))
 
-	class_weights = {0: 1, 1: 1}
 	print("New length of dataset", X.shape[0])
 elif mode == "example_weighting":
 	print("Weighting ..")
@@ -83,11 +69,30 @@ elif mode == "example_weighting":
 	labels = np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0)
 
 	class_weights = {0: 1, 1: 2}
+elif mode == "easy_ensemble":
+	print("Easy ensemble")
+	ee = EasyEnsembleDataset(5)
+	datasets = ee.get_dataset(
+		train["comment_text"].astype(str).values.reshape(-1, 1),
+		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
+	print(len(datasets))
+	# TO-DO training for ensemble
+	exit()
+elif mode == "smote":
+	print("smote")
+	sd = SMOTEDataset()
+	cv = CountVectorizer()
+	X, labels = sd.get_dataset(
+		cv.fit_transform(train["comment_text"].astype(str).values.reshape(-1)),
+		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
+	print("New length of dataset", X.shape[0])
+	X = cv.inverse_transform(X)
+	print("New length of dataset", X.shape[0])
+elif mode == "density_based_sampling_dataset":
+	exit()
 elif mode == "vanilla":
 	X = train["comment_text"].astype(str).values.reshape(-1, 1)
 	labels = np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0)
-
-	class_weights = {0: 1, 1: 1}
 
 del train
 gc.collect()
