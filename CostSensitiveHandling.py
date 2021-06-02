@@ -3,7 +3,7 @@ import numpy as np
 cost_m = [[0, 3], [1, 0.1]]
 
 
-def stratification_undersample(X, y, per=0.66, dimensions=2):
+def stratification_undersample(X, y, per=0.75, dimensions=2):
     """Under-sampling.
        Parameters
        ----------
