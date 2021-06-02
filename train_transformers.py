@@ -5,6 +5,9 @@ import numpy as np
 import gc
 import os
 import glob
+import sys
+import six
+sys.modules['sklearn.externals.six'] = six
 
 from ImbalanceHandling import RandomOversampledDataset
 from utils.evaluate import evaluate
