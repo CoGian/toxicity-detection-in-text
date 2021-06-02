@@ -1,7 +1,8 @@
 import numpy as np
 
 cost_m = [[0, 3], [1, 0.1]]
-
+seed = 13
+np.random.seed(seed)
 
 def stratification_undersample(X, y, per=0.75, dimensions=2):
     """Under-sampling.

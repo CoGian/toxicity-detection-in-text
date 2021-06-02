@@ -11,6 +11,8 @@ from ImbalanceHandling import EasyEnsembleDataset, SMOTEDataset, DensityBasedSam
 from utils.evaluate import evaluate
 parser = argparse.ArgumentParser()
 
+seed = 13
+np.random.seed(seed)
 parser.add_argument(
 	"--data_path",
 	"-d",
