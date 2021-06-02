@@ -5,11 +5,12 @@ from keras.layers import Dense
 from keras.layers import LSTM
 from keras.layers import Embedding
 from tensorflow.keras import utils
-from keras.optimizers import Adam
 import numpy as np
 import os
 from sklearn import metrics
 import pandas as pd
+from ImbalanceHandling import *
+from CostSensitiveHandling import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -51,10 +52,11 @@ parser.add_argument(
 #args = parser.parse_args()
 data_path = 'data/cleared_data'
 BATCH_SIZE = 256
-EPOCHS = 20
+EPOCHS = 10
 MAX_LEN = 128
 saving_path = "vanilla_results"
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
+N_VOTERS = 3
 
 seed = 13
 tf.random.set_seed(seed)
@@ -87,23 +89,22 @@ print("REPLICAS: ", strategy.num_replicas_in_sync)
 def build_lstm_model():
     # create and fit the LSTM network
     model = Sequential()
-    model.add(Embedding(10000, 300, input_length=MAX_LEN, trainable=True))
-    model.add(LSTM(50, input_shape=(300, MAX_LEN), return_sequences=True))
-    model.add(LSTM(50, return_sequences=False))
+    model.add(Embedding(100000, 300, input_length=MAX_LEN, trainable=True))
+    model.add(LSTM(100, input_shape=(300, MAX_LEN), return_sequences=True))
+    model.add(LSTM(100, return_sequences=False))
     model.add(Dense(2, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam')
 
     return model
 
-def build_lstm_model2(size):
-    # create and fit the LSTM network
-    model = Sequential()
-    model.add(LSTM(50, input_shape=(1, MAX_LEN), return_sequences=True))
-    model.add(LSTM(50, return_sequences=False))
-    model.add(Dense(2, activation='softmax'))
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
+def custom_loss(y_true, y_pred):
+  pred_idx = tf.argmax(y_pred, axis=1, output_type=tf.int32)
+  indices = tf.stack([tf.reshape(pred_idx, (-1)),
+                      tf.reshape(tf.cast(y_true, tf.int32), (-1,))
+                      ], axis=1)
+  batch_weights = tf.gather_nd(weights, indices)
 
-    return model
+  return batch_weights*tf.keras.losses.categorical_crossentropy(y_true, y_pred)
 
 def print_metrics(y_true, y_pred):
     y_true = [np.argmax(out) for out in y_true]
@@ -119,15 +120,14 @@ x_train, y_train = data_train['comment_text'].apply(str).to_list(), data_train['
 data_test = pd.read_csv(data_path+'/test_cleared.csv')
 x_test, y_test = data_test['comment_text'].apply(str).to_list(), data_test['toxicity'].to_numpy()
 
-mode = 0
+mode = 3
 
-if mode !=4:
-    tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=10000, lower=False)
-    tokenizer.fit_on_texts(x_train+x_test)
-    x_train = tokenizer.texts_to_sequences(x_train)
-    x_test = tokenizer.texts_to_sequences(x_test)
-    x_train = tf.keras.preprocessing.sequence.pad_sequences(x_train, maxlen=MAX_LEN)
-    x_test = tf.keras.preprocessing.sequence.pad_sequences(x_test, maxlen=MAX_LEN)
+tokenizer = tf.keras.preprocessing.text.Tokenizer(num_words=100000, lower=False)
+tokenizer.fit_on_texts(x_train+x_test)
+x_train = tokenizer.texts_to_sequences(x_train)
+x_test = tokenizer.texts_to_sequences(x_test)
+x_train = tf.keras.preprocessing.sequence.pad_sequences(x_train, maxlen=MAX_LEN)
+x_test = tf.keras.preprocessing.sequence.pad_sequences(x_test, maxlen=MAX_LEN)
 
 y_train = np.where(y_train>=0.5, 1, 0)
 y_test = np.where(y_test>=0.5, 1, 0)
@@ -137,20 +137,19 @@ if mode==0:
 elif mode==1:
     x_train, y_train = rejection_sampling(x_train, y_train)
 elif mode==2:
-    #TODO
-    y = example_weighting(y_train)
+    weights = example_weighting(y_train)
 elif mode==3:
-    ee = EasyEnsembleDataset(5)
+    ee = EasyEnsembleDataset(N_VOTERS)
     datasets = ee.get_dataset(x_train, y_train)
 elif mode==4:
-    sd = SMOTEDataset()
-    x_train, y_train, x_test, y_test = sd.get_dataset(x_train, y_train, x_test, y_test)
+    over = RandomOversampledDataset()
+    x_train, y_train = over.get_dataset(x_train, y_train)
 elif mode==5:
-    db = DensityBasedSamplingDataset()
-    x_train, y_train = db.get_dataset(x_train, y_train, 5)
+    under = RandomUndersampledDataset()
+    x_train, y_train = under.get_dataset(x_train, y_train)
 
 
-if mode != 3 and mode != 4:
+if mode != 3:
     with strategy.scope():
       model = build_lstm_model()
     print(model.summary())
@@ -158,7 +157,10 @@ if mode != 3 and mode != 4:
 
     y_train = utils.to_categorical(y_train, 2)
     y_test = utils.to_categorical(y_test, 2)
-    model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1)
+    if mode != 2:
+        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1)
+    else:
+        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1, sample_weight=weights)
 
     print("Training metrics")
     y_pred_train = model.predict(x_train)
@@ -167,11 +169,10 @@ if mode != 3 and mode != 4:
     print("Testing metrics")
     y_pred = model.predict(x_test)
     print_metrics(y_test, y_pred)
-
 elif mode == 3:
     output_train = []
     output_test = []
-    for voter in range(5):
+    for voter in range(N_VOTERS):
         with strategy.scope():
             model = build_lstm_model()
         #print(model.summary())
@@ -197,34 +198,6 @@ elif mode == 3:
     majorities_train = [np.argmax(np.bincount(column)) for column in output_train]
     majorities_test = [np.argmax(np.bincount(column)) for column in output_test]
 
-    print("Training metrics")
-    y_pred_train = model.predict(x_train)
-    print_metrics(y_train, majorities_train)
-
     print("Testing metrics")
     y_pred = model.predict(x_test)
     print_metrics(y_test, majorities_test)
-
-
-elif mode == 4:
-    with strategy.scope():
-      model = build_lstm_model2(x_train.shape[1])
-    print(model.summary())
-
-    #x_train, x_test = np.array(x_train), np.array(x_test)
-
-    y_train = utils.to_categorical(y_train, 2)
-    y_test = utils.to_categorical(y_test, 2)
-
-    x_train = x_train.reshape(x_train.shape[0], 1, x_train.shape[1])
-    x_test = x_test.reshape(x_test.shape[0], 1, x_test.shape[1])
-    model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1)
-
-    print("Training metrics")
-    y_pred_train = model.predict(x_train)
-    print_metrics(y_train, y_pred_train)
-
-    print("Testing metrics")
-    y_pred = model.predict(x_test)
-    print_metrics(y_test, y_pred)
-
