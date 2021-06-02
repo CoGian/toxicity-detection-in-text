@@ -157,13 +157,11 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			elif mode == "random_oversample":
 				print("Random Oversample...")
 				over = RandomOversampledDataset()
-				X = np.dstack((input_ids, attention_mask))
-				X, labels = over.get_dataset(X, labels)
-				input_ids, attention_mask = np.dsplit(X, 2)
+				input_ids, labels = over.get_dataset(input_ids, labels)
 				input_ids = input_ids.reshape(input_ids.shape[0], -1)
-				attention_mask = attention_mask.reshape(attention_mask.shape[0], -1)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
+				exit()
 			elif mode == "vanilla":
 				pass
 
