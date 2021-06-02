@@ -6,7 +6,7 @@ import gc
 import os
 import glob
 
-from ImbalanceHandling import RandomOversampledDataset
+from ImbalanceHandling import RandomOversampledDataset, RandomUndersampledDataset
 from utils.evaluate import evaluate
 from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
 
@@ -162,6 +162,14 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
+			elif mode == "random_undersample":
+				print("Random Undersample...")
+				under = RandomUndersampledDataset()
+				input_ids, labels = under.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
+				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
+				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
+				print("New length of dataset", input_ids.shape[0])
 			elif mode == "vanilla":
 				pass
 
@@ -189,7 +197,7 @@ def createTLmodel(transformer_layer):
 		dtype=tf.int32,
 		name="input_mask")
 
-	if mode== "random_oversample":
+	if mode == "random_oversample" or "random_undersample":
 		outputs = transformer_layer([input_word_ids])
 	else:
 		outputs = transformer_layer([input_word_ids, input_mask])
