@@ -159,6 +159,7 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				over = RandomOversampledDataset()
 				input_ids, labels = over.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
 				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = np.ones(input_ids.shape)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
 				exit()
