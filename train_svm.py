@@ -11,6 +11,8 @@ from ImbalanceHandling import EasyEnsembleDataset, SMOTEDataset, DensityBasedSam
 from utils.evaluate import evaluate
 parser = argparse.ArgumentParser()
 
+seed = 13
+np.random.seed(seed)
 parser.add_argument(
 	"--data_path",
 	"-d",
@@ -52,7 +54,7 @@ if mode == "under_sampling":
 	X, labels = stratification_undersample(
 		train["comment_text"].astype(str).values.reshape(-1, 1),
 		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0),
-		per=0.66,
+		per=0.75,
 		dimensions=2)
 
 	print("New length of dataset", X.shape[0])
@@ -68,7 +70,7 @@ elif mode == "example_weighting":
 	X = train["comment_text"].astype(str).values.reshape(-1, 1)
 	labels = np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0)
 
-	class_weights = {0: 1, 1: 2}
+	class_weights = {0: 1, 1: 3}
 elif mode == "easy_ensemble":
 	print("Easy ensemble")
 	ee = EasyEnsembleDataset(5)

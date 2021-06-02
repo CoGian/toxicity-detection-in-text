@@ -1,9 +1,10 @@
 import numpy as np
 
-cost_m = [[0.1, 2], [1, 0]]
+cost_m = [[0, 3], [1, 0.1]]
+seed = 13
+np.random.seed(seed)
 
-
-def stratification_undersample(X, y, per=0.66, dimensions=2):
+def stratification_undersample(X, y, per=0.75, dimensions=2):
     """Under-sampling.
        Parameters
        ----------
@@ -94,7 +95,7 @@ def rejection_sampling(X, y):
 
 
 def example_weighting(y):
-    weights = np.where(y >= .5, 2.0, 1.0)
+    weights = np.where(y >= .5, 3.0, 1.0)
 
     return weights
 

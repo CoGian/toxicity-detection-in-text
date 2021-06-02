@@ -11,7 +11,7 @@ def evaluate(y_test, y_pred, PATH):
 	with open(PATH + '/y_pred.npy', 'wb') as f:
 		np.save(f, y_pred)
 
-	cost_m = [[0.1, 2], [1, 0]]
+	cost_m = [[0, 3], [1, 0.1]]
 
 	acc = metrics.accuracy_score(y_test, y_pred)
 	print('Accuracy on test: {:f}'.format(acc))
