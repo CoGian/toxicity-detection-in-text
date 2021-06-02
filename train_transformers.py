@@ -162,7 +162,6 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				attention_mask = np.ones(input_ids.shape)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
-				exit()
 			elif mode == "vanilla":
 				pass
 
@@ -190,7 +189,10 @@ def createTLmodel(transformer_layer):
 		dtype=tf.int32,
 		name="input_mask")
 
-	outputs = transformer_layer([input_word_ids, input_mask])
+	if mode== "random_oversample":
+		outputs = transformer_layer([input_word_ids])
+	else:
+		outputs = transformer_layer([input_word_ids, input_mask])
 	avg_pool = tf.keras.layers.GlobalAveragePooling1D()(outputs.last_hidden_state)
 	x = tf.keras.layers.Dropout(0.1)(avg_pool)
 	x = tf.keras.layers.Dense(128, activation='relu')(x)
