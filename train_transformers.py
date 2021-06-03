@@ -63,7 +63,7 @@ MAX_LEN = int(args.max_len)
 mode = args.mode
 saving_path = args.save_path
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
-
+N_VOTERS = 9
 seed = 13
 tf.random.set_seed(seed)
 np.random.seed(seed)
@@ -172,8 +172,8 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				print("New length of dataset", input_ids.shape[0])
 			elif mode == "easy_ensemble":
 				print("Easy ensemble")
-				ee = EasyEnsembleDataset(5)
-				datasets = ee.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
+				ee = EasyEnsembleDataset(N_VOTERS)
+				datasets = ee.get_dataset(input_ids, np.where(labels >= .5, 1, 0).reshape(-1))
 				print(len(datasets))
 				print(datasets[0].shape)
 				exit()
