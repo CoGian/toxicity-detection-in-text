@@ -175,7 +175,18 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				ee = EasyEnsembleDataset(N_VOTERS)
 				datasets = ee.get_dataset(input_ids, np.where(labels >= .5, 1, 0).reshape(-1))
 				print(len(datasets))
-				print(datasets[0].shape)
+				tf_datasets = []
+				for dataset in datasets:
+					input_ids, labels = dataset
+					print(input_ids.shape)
+					attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
+					sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
+					tf_datasets.append(
+						tf.data.Dataset.from_tensor_slices((
+							{"input_word_ids": input_ids, "input_mask": attention_mask},
+							{"target": labels}, sample_weights))
+					)
+
 				exit()
 			elif mode == "vanilla":
 				pass
