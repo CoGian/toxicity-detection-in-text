@@ -51,12 +51,12 @@ parser.add_argument(
 )
 #args = parser.parse_args()
 data_path = 'data/cleared_data'
-BATCH_SIZE = 256
+BATCH_SIZE = 5000
 EPOCHS = 10
 MAX_LEN = 128
 saving_path = "vanilla_results"
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
-N_VOTERS = 3
+N_VOTERS = 9
 
 seed = 13
 tf.random.set_seed(seed)
@@ -158,9 +158,9 @@ if mode != 3:
     y_train = utils.to_categorical(y_train, 2)
     y_test = utils.to_categorical(y_test, 2)
     if mode != 2:
-        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1)
+        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1)
     else:
-        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1, sample_weight=weights)
+        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1, sample_weight=weights)
 
     print("Training metrics")
     y_pred_train = model.predict(x_train)
@@ -170,9 +170,9 @@ if mode != 3:
     y_pred = model.predict(x_test)
     print_metrics(y_test, y_pred)
 elif mode == 3:
-    output_train = []
     output_test = []
     for voter in range(N_VOTERS):
+        print("Iteration", voter)
         with strategy.scope():
             model = build_lstm_model()
         #print(model.summary())
@@ -181,23 +181,18 @@ elif mode == 3:
         y_train = utils.to_categorical(y_train, 2)
         y_test = utils.to_categorical(y_test, 2)  
 
-        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=5000, verbose=1)
+        model.fit(x_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=1)
 
-        y_pred_train = model.predict(x_train)
         y_pred = model.predict(x_test)
         
-        output_train.append([np.argmax(y) for y in y_pred_train])
         output_test.append([np.argmax(y) for y in y_pred])
+        print()
 
-    output_train = np.array(output_train)
-    print(output_train.shape)
-    output_test = np.array(output_test)
-    output_train = output_train.reshape(output_train.shape[0], output_train.shape[1]).T
-    output_test = output_test.reshape(output_test.shape[0], output_test.shape[1]).T
+    output_test = np.array(output_test).T
 
-    majorities_train = [np.argmax(np.bincount(column)) for column in output_train]
-    majorities_test = [np.argmax(np.bincount(column)) for column in output_test]
+    majorities_test = np.array([np.argmax(np.bincount(column)) for column in output_test])
+    majorities_test = utils.to_categorical(majorities_test, 2)
 
     print("Testing metrics")
-    y_pred = model.predict(x_test)
+
     print_metrics(y_test, majorities_test)
