@@ -258,7 +258,7 @@ tf.keras.utils.plot_model(
 	to_file=MODEL + '.png')
 
 n_steps = BUFFER_SIZE // BATCH_SIZE
-print(BUFFER_SIZE)
+
 if mode == "easy_ensemble":
 	output_test = []
 	for index, dataset in enumerate(tf_datasets):
