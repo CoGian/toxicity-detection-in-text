@@ -62,8 +62,8 @@ EPOCHS = int(args.epochs)
 MAX_LEN = int(args.max_len)
 mode = args.mode
 saving_path = args.save_path
-BUFFER_SIZE = np.ceil(1804874 * 0.8)
 global BUFFER_SIZE
+BUFFER_SIZE = np.ceil(1804874 * 0.8)
 N_VOTERS = 9
 seed = 13
 tf.random.set_seed(seed)
