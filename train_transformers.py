@@ -271,8 +271,7 @@ if mode == "easy_ensemble":
 			verbose=1,
 			steps_per_epoch=n_steps)
 		y_pred = model.predict(test_inputs_ds, verbose=1)
-		y_pred = np.where(y_pred >= .5, 1, 0)
-		print(y_pred.shape)
+		y_pred = np.where(y_pred >= .5, 1, 0).reshape(-1)
 		output_test.append(y_pred)
 
 	output_test = np.array(output_test).T
