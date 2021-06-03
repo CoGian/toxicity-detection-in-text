@@ -6,7 +6,7 @@ import gc
 import os
 import glob
 
-from ImbalanceHandling import RandomOversampledDataset, RandomUndersampledDataset
+from ImbalanceHandling import RandomOversampledDataset, RandomUndersampledDataset, EasyEnsembleDataset
 from utils.evaluate import evaluate
 from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
 
@@ -170,6 +170,13 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
 				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
 				print("New length of dataset", input_ids.shape[0])
+			elif mode == "easy_ensemble":
+				print("Easy ensemble")
+				ee = EasyEnsembleDataset(5)
+				datasets = ee.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
+				print(len(datasets))
+				print(datasets[0].shape)
+				exit()
 			elif mode == "vanilla":
 				pass
 
