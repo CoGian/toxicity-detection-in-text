@@ -7,7 +7,7 @@ from CostSensitiveHandling import stratification_undersample, rejection_sampling
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import make_pipeline
-from ImbalanceHandling import EasyEnsembleDataset, SMOTEDataset, DensityBasedSamplingDataset
+from ImbalanceHandling import EasyEnsembleDataset, RandomOversampledDataset, RandomUndersampledDataset
 from utils.evaluate import evaluate
 parser = argparse.ArgumentParser()
 
@@ -77,33 +77,48 @@ elif mode == "easy_ensemble":
 	datasets = ee.get_dataset(
 		train["comment_text"].astype(str).values.reshape(-1, 1),
 		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
-	print(len(datasets))
-	# TO-DO training for ensemble
-	exit()
-elif mode == "smote":
-	print("smote")
-	sd = SMOTEDataset()
-	cv = CountVectorizer()
-	X, labels = sd.get_dataset(
-		cv.fit_transform(train["comment_text"].astype(str).values.reshape(-1)),
-		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
-	print("New length of dataset", X.shape[0])
-	X = cv.inverse_transform(X)
-	print("New length of dataset", X.shape[0])
-elif mode == "density_based_sampling_dataset":
-	exit()
+elif mode == "random_oversample":
+	over = RandomOversampledDataset()
+	X, labels = over.get_dataset(train["comment_text"].astype(str).values.reshape(-1, 1),
+										np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
+elif mode == "random_undersample":
+	under = RandomUndersampledDataset()
+	X, labels = under.get_dataset(train["comment_text"].astype(str).values.reshape(-1, 1),
+										np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
 elif mode == "vanilla":
 	X = train["comment_text"].astype(str).values.reshape(-1, 1)
 	labels = np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0)
 
 del train
 gc.collect()
-clf = make_pipeline(TfidfVectorizer(), LinearSVC(
-	random_state=0,
-	tol=1e-5,
-	verbose=1,
-	class_weight=class_weights))
+if mode == "easy_ensemble":
+	output_test = []
+	for dataset in datasets:
+		X, labels = dataset
+		clf = make_pipeline(TfidfVectorizer(), LinearSVC(
+			random_state=0,
+			tol=1e-5,
+			verbose=1,
+			class_weight=class_weights))
 
-clf.fit(X.ravel(), labels)
-y_pred = clf.predict(x_test.ravel())
-evaluate(y_test, y_pred, saving_path)
+		clf.fit(X.ravel(), labels)
+		y_pred = clf.predict(x_test.ravel())
+		output_test.append(y_pred)
+
+	output_test = np.array(output_test)
+	output_test = output_test.reshape(output_test.shape[0], output_test.shape[1]).T
+	majorities_test = [np.argmax(np.bincount(column)) for column in output_test]
+
+	evaluate(y_test, np.array(majorities_test), saving_path)
+
+
+else:
+	clf = make_pipeline(TfidfVectorizer(), LinearSVC(
+		random_state=0,
+		tol=1e-5,
+		verbose=1,
+		class_weight=class_weights))
+
+	clf.fit(X.ravel(), labels)
+	y_pred = clf.predict(x_test.ravel())
+	evaluate(y_test, y_pred, saving_path)

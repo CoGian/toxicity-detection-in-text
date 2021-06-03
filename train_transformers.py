@@ -5,6 +5,8 @@ import numpy as np
 import gc
 import os
 import glob
+
+from ImbalanceHandling import RandomOversampledDataset, RandomUndersampledDataset
 from utils.evaluate import evaluate
 from CostSensitiveHandling import stratification_undersample, rejection_sampling, example_weighting
 
@@ -152,6 +154,22 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			elif mode == "example_weighting":
 				print("Weighting ..")
 				sample_weights = example_weighting(labels)
+			elif mode == "random_oversample":
+				print("Random Oversample...")
+				over = RandomOversampledDataset()
+				input_ids, labels = over.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
+				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
+				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
+				print("New length of dataset", input_ids.shape[0])
+			elif mode == "random_undersample":
+				print("Random Undersample...")
+				under = RandomUndersampledDataset()
+				input_ids, labels = under.get_dataset(input_ids, np.where(labels >= .5, 1, 0))
+				input_ids = input_ids.reshape(input_ids.shape[0], -1)
+				attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
+				sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
+				print("New length of dataset", input_ids.shape[0])
 			elif mode == "vanilla":
 				pass
 
@@ -179,7 +197,10 @@ def createTLmodel(transformer_layer):
 		dtype=tf.int32,
 		name="input_mask")
 
-	outputs = transformer_layer([input_word_ids, input_mask])
+	if mode == "random_oversample" or "random_undersample":
+		outputs = transformer_layer([input_word_ids])
+	else:
+		outputs = transformer_layer([input_word_ids, input_mask])
 	avg_pool = tf.keras.layers.GlobalAveragePooling1D()(outputs.last_hidden_state)
 	x = tf.keras.layers.Dropout(0.1)(avg_pool)
 	x = tf.keras.layers.Dense(128, activation='relu')(x)
