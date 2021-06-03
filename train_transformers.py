@@ -174,20 +174,23 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 				print("Easy ensemble")
 				ee = EasyEnsembleDataset(N_VOTERS)
 				datasets = ee.get_dataset(input_ids, np.where(labels >= .5, 1, 0).reshape(-1))
-				print(len(datasets))
 				tf_datasets = []
 				for dataset in datasets:
 					input_ids, labels = dataset
 					print(input_ids.shape)
 					attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
 					sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
+					global BUFFER_SIZE
+					BUFFER_SIZE = len(input_ids)
 					tf_datasets.append(
 						tf.data.Dataset.from_tensor_slices((
 							{"input_word_ids": input_ids, "input_mask": attention_mask},
 							{"target": labels}, sample_weights))
+							.repeat().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(AUTO)
 					)
-
-				exit()
+				del datasets
+				gc.collect()
+				return tf_datasets
 			elif mode == "vanilla":
 				pass
 
@@ -215,7 +218,7 @@ def createTLmodel(transformer_layer):
 		dtype=tf.int32,
 		name="input_mask")
 
-	if mode == "random_oversample" or "random_undersample":
+	if mode == "random_oversample" or mode == "random_undersample" or mode == "easy_ensemble":
 		outputs = transformer_layer([input_word_ids])
 	else:
 		outputs = transformer_layer([input_word_ids, input_mask])
@@ -235,8 +238,12 @@ def createTLmodel(transformer_layer):
 """## RoBERTa - base"""
 
 AUTO = tf.data.experimental.AUTOTUNE
-train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train'), mode=mode, forTrain=True).repeat().shuffle(BUFFER_SIZE).batch(
-	BATCH_SIZE).prefetch(AUTO)
+
+if mode == "easy_ensemble":
+	tf_datasets = get_dataset(PATH=os.path.join(data_path, 'train'), mode=mode, forTrain=True)
+else:
+	train_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'train'), mode=mode, forTrain=True)\
+		.repeat().shuffle(BUFFER_SIZE).batch(BATCH_SIZE).prefetch(AUTO)
 gc.collect()
 val_inputs_ds = get_dataset(PATH=os.path.join(data_path, 'val')).batch(BATCH_SIZE).cache().prefetch(AUTO)
 gc.collect()
@@ -255,14 +262,34 @@ tf.keras.utils.plot_model(
 
 n_steps = BUFFER_SIZE // BATCH_SIZE
 
-model.fit(
-	x=train_inputs_ds,
-	validation_data=val_inputs_ds,
-	epochs=EPOCHS,
-	verbose=1,
-	steps_per_epoch=n_steps)
+if mode == "easy_ensemble":
+	output_test = []
+	for index, dataset in enumerate(tf_datasets):
+		print("=================================")
+		print("Train Dataset ", index)
+		model.fit(
+			x=dataset,
+			validation_data=val_inputs_ds,
+			epochs=EPOCHS,
+			verbose=1,
+			steps_per_epoch=n_steps)
+		y_pred = model.predict(test_inputs_ds, verbose=1)
 
-y_pred = model.predict(test_inputs_ds, verbose=1)
+		output_test.append(y_pred)
+
+	output_test = np.array(output_test).T
+	majorities_test = np.array([np.argmax(np.bincount(column)) for column in output_test])
+	evaluate(y_test, y_pred, PATH=saving_path)
+
+else:
+	model.fit(
+		x=train_inputs_ds,
+		validation_data=val_inputs_ds,
+		epochs=EPOCHS,
+		verbose=1,
+		steps_per_epoch=n_steps)
+
+	y_pred = model.predict(test_inputs_ds, verbose=1)
 
 
-evaluate(y_test, y_pred, PATH=saving_path)
+	evaluate(y_test, y_pred, PATH=saving_path)
