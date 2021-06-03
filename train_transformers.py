@@ -63,6 +63,7 @@ MAX_LEN = int(args.max_len)
 mode = args.mode
 saving_path = args.save_path
 BUFFER_SIZE = np.ceil(1804874 * 0.8)
+global BUFFER_SIZE
 N_VOTERS = 9
 seed = 13
 tf.random.set_seed(seed)
@@ -180,7 +181,6 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 					print(input_ids.shape)
 					attention_mask = np.ones(input_ids.shape, dtype=np.uint8)
 					sample_weights = np.ones(input_ids.shape[0], dtype=np.float32)
-					global BUFFER_SIZE
 					BUFFER_SIZE = len(input_ids)
 					tf_datasets.append(
 						tf.data.Dataset.from_tensor_slices((
@@ -194,7 +194,6 @@ def get_dataset(PATH, mode=None, forTrain=False, forTest=False):
 			elif mode == "vanilla":
 				pass
 
-			global BUFFER_SIZE
 			BUFFER_SIZE = len(input_ids)
 		return tf.data.Dataset.from_tensor_slices((
 			{"input_word_ids": input_ids, "input_mask": attention_mask},
@@ -261,7 +260,7 @@ tf.keras.utils.plot_model(
 	to_file=MODEL + '.png')
 
 n_steps = BUFFER_SIZE // BATCH_SIZE
-
+print(BUFFER_SIZE)
 if mode == "easy_ensemble":
 	output_test = []
 	for index, dataset in enumerate(tf_datasets):
