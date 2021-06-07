@@ -114,6 +114,29 @@ def print_metrics(y_true, y_pred):
     print("Accuracy: ", end='')
     print(metrics.accuracy_score(y_true, y_pred))
 
+def evaluate(y_test, y_pred):
+    y_pred = np.where(y_pred >= .5, 1, 0)
+
+    cost_m = [[0, 3], [1, 0.1]]
+
+    acc = metrics.accuracy_score(y_test, y_pred)
+    print('Accuracy on test: {:f}'.format(acc))
+    prec = metrics.precision_score(y_test, y_pred, average='macro')
+    rec = metrics.recall_score(y_test, y_pred, average='macro')
+    f1 = metrics.f1_score(y_test, y_pred, average='macro')
+    confusion_matrix = metrics.confusion_matrix(y_test, y_pred).T
+    loss = np.sum(confusion_matrix * cost_m)
+
+    print(confusion_matrix)
+
+    stats = {
+      'Accuracy': acc,
+      'Precision': prec,
+      'Recall': rec,
+      'F1': f1,
+      'cost loss': loss}
+    print(stats)
+
 data_train = pd.read_csv(data_path+'/train_cleared.csv')
 x_train, y_train = data_train['comment_text'].apply(str).to_list(), data_train['target'].to_numpy()
 
@@ -169,6 +192,10 @@ if mode != 3:
     print("Testing metrics")
     y_pred = model.predict(x_test)
     print_metrics(y_test, y_pred)
+    if mode<3:
+        y_test = np.array([np.argmax(y) for y in y_test])
+        y_pred = np.array([np.argmax(y) for y in y_pred])
+        evaluate(y_test, y_pred)
 elif mode == 3:
     output_test = []
     for voter in range(N_VOTERS):
