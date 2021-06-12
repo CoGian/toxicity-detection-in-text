@@ -36,6 +36,7 @@ args = parser.parse_args()
 data_path = args.data_path
 mode = args.mode
 saving_path = args.save_path
+N_VOTERS = 9
 
 if not os.path.exists(saving_path):
 	os.mkdir(saving_path)
@@ -73,7 +74,7 @@ elif mode == "example_weighting":
 	class_weights = {0: 1, 1: 3}
 elif mode == "easy_ensemble":
 	print("Easy ensemble")
-	ee = EasyEnsembleDataset(5)
+	ee = EasyEnsembleDataset(N_VOTERS)
 	datasets = ee.get_dataset(
 		train["comment_text"].astype(str).values.reshape(-1, 1),
 		np.where(train["target"].values.reshape((-1, 1)) >= .5, 1, 0).reshape(-1))
